@@ -15,7 +15,7 @@ contract SPVM {
         uint32 tokenTicker,
         address holder_address,
         uint16 balance
-    ) external {
+    ) internal {
         initialized_tickers[tokenTicker] = true;
         state[tokenTicker][holder_address] = balance;
     }
