@@ -7,12 +7,12 @@ import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 /// @title Spire PoC Virtual Machine - version 1 - interpreter
 /// @author mteam
 contract SPVM {
-    mapping(uint32 => bool) public initialized_tickers;
-    mapping(uint32 => mapping(address => uint16)) public state;
+    mapping(string => bool) public initialized_tickers;
+    mapping(string => mapping(address => uint16)) public state;
 
     // Function to set a balance in the nested map
     function setBalance(
-        uint32 tokenTicker,
+        string tokenTicker,
         address holder_address,
         uint16 balance
     ) internal {
@@ -22,7 +22,7 @@ contract SPVM {
 
     // Function to get a balance from the nested map
     function getBalance(
-        uint32 tokenTicker,
+        string tokenTicker,
         address holder_address
     ) external view returns (uint16) {
         return state[tokenTicker][holder_address];
@@ -35,13 +35,13 @@ contract SPVM {
     }
 
     struct MintTransactionParams {
-        uint32 tokenTicker;
+        string tokenTicker;
         address owner;
         uint16 supply;
     }
 
     struct TransferTransactionParams {
-        uint32 tokenTicker;
+        string tokenTicker;
         address to;
         uint16 amount;
     }
@@ -164,7 +164,7 @@ contract SPVM {
         Transaction[] transactions;
         bytes32 blockHash;
         bytes32 parentHash;
-        uint32 blockNumber;
+        string blockNumber;
     }
 
     // all historical blocks
