@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.0;
 
 import "openzeppelin-contracts/contracts/utils/cryptography/SignatureChecker.sol";
 
@@ -41,6 +41,18 @@ contract SPVM {
         TransactionContent txContent;
         bytes32 transactionHash;
         bytes signature;
+    }
+
+    constructor() {
+        // create genesis block
+        Block storage genesisBlock = blocks.push();
+
+        genesisBlock.blockHash = 0;
+        genesisBlock.parentHash = 0;
+        genesisBlock.blockNumber = 1;
+
+
+        blocks.push(genesisBlock);
     }
 
     // Function to set a balance in the nested map
