@@ -9,24 +9,8 @@ import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
 contract SPVM {
     mapping(string => bool) public initialized_tickers;
     mapping(string => mapping(address => uint16)) public state;
-
-    // Function to set a balance in the nested map
-    function setBalance(
-        string tokenTicker,
-        address holder_address,
-        uint16 balance
-    ) internal {
-        initialized_tickers[tokenTicker] = true;
-        state[tokenTicker][holder_address] = balance;
-    }
-
-    // Function to get a balance from the nested map
-    function getBalance(
-        string tokenTicker,
-        address holder_address
-    ) external view returns (uint16) {
-        return state[tokenTicker][holder_address];
-    }
+    // all historical blocks
+    Block[] public blocks; 
 
     struct TransactionContent {
         address from;
@@ -44,6 +28,37 @@ contract SPVM {
         string tokenTicker;
         address to;
         uint16 amount;
+    }
+
+    struct Block {
+        Transaction[] transactions;
+        bytes32 blockHash;
+        bytes32 parentHash;
+        string blockNumber;
+    }
+
+    struct Transaction {
+        TransactionContent txContent;
+        bytes32 transactionHash;
+        bytes signature;
+    }
+
+    // Function to set a balance in the nested map
+    function setBalance(
+        string tokenTicker,
+        address holder_address,
+        uint16 balance
+    ) internal {
+        initialized_tickers[tokenTicker] = true;
+        state[tokenTicker][holder_address] = balance;
+    }
+
+    // Function to get a balance from the nested map
+    function getBalance(
+        string tokenTicker,
+        address holder_address
+    ) external view returns (uint16) {
+        return state[tokenTicker][holder_address];
     }
 
     function executeRawTransaction(bytes memory rawTx) internal {
@@ -146,12 +161,6 @@ contract SPVM {
         executeRawTransaction(abi.encode(txContent));
     }
 
-    struct Transaction {
-        TransactionContent txContent;
-        bytes32 transactionHash;
-        bytes signature;
-    }
-
     function executeBlockTransactions(
         Transaction[] memory txs
     ) internal {
@@ -159,16 +168,6 @@ contract SPVM {
             executeTx(txs[i]);
         }
     }
-
-    struct Block {
-        Transaction[] transactions;
-        bytes32 blockHash;
-        bytes32 parentHash;
-        string blockNumber;
-    }
-
-    // all historical blocks
-    Block[] public blocks; 
 
     // TODO: add permissions
     function proposeBlock (
