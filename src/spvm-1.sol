@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.19;
 
-import "openzeppelin-contracts/utils/cryptography/SignatureChecker.sol";
+import "openzeppelin-contracts/contracts/utils/cryptography/SignatureChecker.sol";
 
 /// @title Spire PoC Virtual Machine - version 1 - interpreter
 /// @author mteam
@@ -34,7 +34,7 @@ contract SPVM {
         Transaction[] transactions;
         bytes32 blockHash;
         bytes32 parentHash;
-        string blockNumber;
+        uint32 blockNumber;
     }
 
     struct Transaction {
@@ -45,7 +45,7 @@ contract SPVM {
 
     // Function to set a balance in the nested map
     function setBalance(
-        string tokenTicker,
+        string memory tokenTicker,
         address holder_address,
         uint16 balance
     ) internal {
@@ -55,9 +55,9 @@ contract SPVM {
 
     // Function to get a balance from the nested map
     function getBalance(
-        string tokenTicker,
+        string memory tokenTicker,
         address holder_address
-    ) external view returns (uint16) {
+    ) public view returns (uint16) {
         return state[tokenTicker][holder_address];
     }
 
@@ -74,7 +74,7 @@ contract SPVM {
                 txContent.txParam,
                 (MintTransactionParams)
             );
-            this.setBalance(
+            setBalance(
                 mintParams.tokenTicker,
                 mintParams.owner,
                 mintParams.supply
@@ -138,7 +138,7 @@ contract SPVM {
         bytes32 transaction_hash,
         bytes memory signature,
         address expected_signer
-    ) internal pure returns (bool) {
+    ) internal view returns (bool) {
         return SignatureChecker.isValidSignatureNow(
             expected_signer,
             transaction_hash,
@@ -147,18 +147,18 @@ contract SPVM {
     }
 
     function executeTx(
-        Transaction tx
+        Transaction memory transaction
     ) internal {
-        bytes32 txHash = keccak256(abi.encode(tx.txContent));
+        bytes32 txHash = keccak256(abi.encode(transaction.txContent));
         require(
-            txHash == tx.transactionHash,
+            txHash == transaction.transactionHash,
             "Invalid transaction hash"
         );
         require(
-            validateSignature(tx.transactionHash, tx.signature, txContent.from),
+            validateSignature(transaction.transactionHash, transaction.signature, transaction.txContent.from),
             "Invalid signature"
         );
-        executeRawTransaction(abi.encode(txContent));
+        executeRawTransaction(abi.encode(transaction.txContent));
     }
 
     function executeBlockTransactions(
@@ -171,26 +171,26 @@ contract SPVM {
 
     // TODO: add permissions
     function proposeBlock (
-        Block memory block
+        Block calldata proposed_block
     ) external {
         // get most recent block
-        Block memory lastBlock = blocks[blocks.length - 1];
+        Block storage lastBlock = blocks[blocks.length - 1];
 
         require(
-            block.blockHash == keccak256(block.parentHash + abi.encode(block.transactions)),
+            proposed_block.blockHash == keccak256(abi.encodePacked(proposed_block.parentHash,abi.encode(proposed_block.transactions))),
             "Invalid block hash"
         );
         require(
-            block.blockNumber == lastBlock.blockNumber + 1,
+            proposed_block.blockNumber == lastBlock.blockNumber + 1,
             "Invalid block number"
         );
         require(
-            block.parentHash == lastBlock.blockHash,
+            proposed_block.parentHash == lastBlock.blockHash,
             "Invalid parent hash"
         );
 
-        blocks.push(block);
+        blocks.push(proposed_block);
 
-        executeBlockTransactions(block.transactions);
+        executeBlockTransactions(proposed_block.transactions);
     }
 }
