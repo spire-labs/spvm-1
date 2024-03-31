@@ -10,7 +10,7 @@ contract SPVM {
     mapping(string => bool) public initialized_tickers;
     mapping(string => mapping(address => uint16)) public state;
     // all historical blocks (blockNumber => Block)
-    mapping(uint32 => Block) public blocks; 
+    mapping(uint32 => Block) public blocks;
     uint32 public blockNumber = 0;
 
     struct TransactionContent {
@@ -146,31 +146,32 @@ contract SPVM {
         bytes memory signature,
         address expected_signer
     ) internal view returns (bool) {
-        return SignatureChecker.isValidSignatureNow(
-            expected_signer,
-            transaction_hash,
-            signature
-        );
+        return
+            SignatureChecker.isValidSignatureNow(
+                expected_signer,
+                transaction_hash,
+                signature
+            );
     }
 
-    function executeTx(
-        Transaction memory transaction
-    ) internal {
+    function executeTx(Transaction memory transaction) internal {
         bytes32 txHash = keccak256(abi.encode(transaction.txContent));
         require(
             txHash == transaction.transactionHash,
             "Invalid transaction hash"
         );
         require(
-            validateSignature(transaction.transactionHash, transaction.signature, transaction.txContent.from),
+            validateSignature(
+                transaction.transactionHash,
+                transaction.signature,
+                transaction.txContent.from
+            ),
             "Invalid signature"
         );
         executeRawTransaction(abi.encode(transaction.txContent));
     }
 
-    function executeBlockTransactions(
-        Transaction[] memory txs
-    ) internal {
+    function executeBlockTransactions(Transaction[] memory txs) internal {
         for (uint i = 0; i < txs.length; i++) {
             // note: reverting transactions revert the entire block
             executeTx(txs[i]);
@@ -178,16 +179,20 @@ contract SPVM {
     }
 
     // TODO: add permissions
-    function proposeBlock (
-        Block calldata proposed_block
-    ) external {
+    function proposeBlock(Block calldata proposed_block) external {
         blockNumber += 1;
 
         // get most recent block
         Block storage lastBlock = blocks[blockNumber - 1];
 
         require(
-            proposed_block.blockHash == keccak256(abi.encodePacked(proposed_block.parentHash,abi.encode(proposed_block.transactions))),
+            proposed_block.blockHash ==
+                keccak256(
+                    abi.encodePacked(
+                        proposed_block.parentHash,
+                        abi.encode(proposed_block.transactions)
+                    )
+                ),
             "Invalid block hash"
         );
         require(
