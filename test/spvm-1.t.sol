@@ -142,4 +142,38 @@ contract SPVMTest is Test, SPVM {
         assert(blocks[0].blockHash == bytes32(0));
         assert(blocks[0].transactions.length == 0);
     }
+
+    function testExecuteBlockTransactions() external {
+        bytes memory txParam = abi.encode(MintTransactionParams("TST", signer, 100));
+        bytes memory rawTx = abi.encode(TransactionContent(signer, 0, txParam));
+        bytes32 txHash = keccak256(rawTx);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, txHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+        Transaction memory Tx = Transaction(TransactionContent(signer, 0, txParam), txHash, signature);
+
+        bytes memory txParam2 = abi.encode(MintTransactionParams("TST2", signer, 200));
+        bytes memory rawTx2 = abi.encode(TransactionContent(signer, 0, txParam2));
+        bytes32 txHash2 = keccak256(rawTx2);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(pk, txHash2);
+        bytes memory signature2 = abi.encodePacked(r2, s2, v2);
+        Transaction memory Tx2 = Transaction(TransactionContent(signer, 0, txParam2), txHash2, signature2);
+
+        // transfer
+        bytes memory txParam3 = abi.encode(TransferTransactionParams("TST2", address(1), 50));
+        bytes memory rawTx3 = abi.encode(TransactionContent(signer, 1, txParam3));
+        bytes32 txHash3 = keccak256(rawTx3);
+        (uint8 v3, bytes32 r3, bytes32 s3) = vm.sign(pk, txHash3);
+        bytes memory signature3 = abi.encodePacked(r3, s3, v3);
+        Transaction memory Tx3 = Transaction(TransactionContent(signer, 1, txParam3), txHash3, signature3);
+
+        Transaction[] memory txs = new Transaction[](3);
+        txs[0] = Tx;
+        txs[1] = Tx2;
+        txs[2] = Tx3;
+
+        executeBlockTransactions(txs);
+        assertEq(getBalance("TST", signer), 100);
+        assertEq(getBalance("TST2", signer), 150);
+        assertEq(getBalance("TST2", address(1)), 50);
+    }
 }
