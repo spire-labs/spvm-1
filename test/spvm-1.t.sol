@@ -259,4 +259,46 @@ contract SPVMTest is Test, SPVM {
         assertEq(getBalance("TST", signer), 50);
         assertEq(getBalance("TST", address(1)), 50);
     }
+        
+    function testProposeBlockWithMultipleTxs() external {
+        // mint
+        bytes memory txParam = abi.encode(MintTransactionParams("TST", signer, 100));
+        bytes memory rawTx = abi.encode(TransactionContent(signer, 0, txParam));
+        bytes32 txHash = keccak256(rawTx);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, txHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+        Transaction memory Tx = Transaction(TransactionContent(signer, 0, txParam), txHash, signature);
+
+        // transfer
+        bytes memory txParam2 = abi.encode(TransferTransactionParams("TST", address(1), 50));
+        bytes memory rawTx2 = abi.encode(TransactionContent(signer, 1, txParam2));
+        bytes32 txHash2 = keccak256(rawTx2);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(pk, txHash2);
+        bytes memory signature2 = abi.encodePacked(r2, s2, v2);
+        Transaction memory Tx2 = Transaction(TransactionContent(signer, 1, txParam2), txHash2, signature2);
+
+        Transaction[] memory txs = new Transaction[](2);
+        txs[0] = Tx;
+        txs[1] = Tx2;
+
+        bytes memory txs_raw = abi.encode(txs);
+
+        bytes32 blockHash = keccak256(abi.encodePacked(blocks[0].blockHash, txs_raw));
+
+        Block memory b = Block({
+            blockNumber: 1,
+            parentHash: blocks[0].blockHash,
+            blockHash: blockHash,
+            transactions: txs
+        });
+
+        this.proposeBlock(b);
+
+        assertEq(blocks[1].blockNumber, 1);
+        assertEq(blocks[1].parentHash, blocks[0].blockHash);
+        assertEq(blocks[1].blockHash, blockHash);
+        assertEq(blocks[1].transactions.length, 2);
+        assertEq(getBalance("TST", signer), 50);
+        assertEq(getBalance("TST", address(1)), 50);
+    }
 }
