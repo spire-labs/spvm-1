@@ -15,6 +15,41 @@ contract SPVMTest is Test, SPVM {
         signer = vm.addr(pk);
     }
 
+    function createTransaction(
+        address _signer,
+        uint8 _type,
+        bytes memory _params
+    ) internal returns (Transaction memory) {
+        bytes memory rawTx = abi.encode(TransactionContent(_signer, _type, _params));
+        bytes32 txHash = keccak256(rawTx);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, txHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+        return Transaction(TransactionContent(_signer, _type, _params), txHash, signature);
+    }
+
+    function encodeRawTransaction(Transaction memory _tx) internal returns (bytes memory) {
+        return abi.encode(_tx.txContent, _tx.transactionHash, _tx.signature);
+    }
+
+    function createMintTransaction(
+        string memory _tokenTicker,
+        address _owner,
+        uint16 _supply
+    ) internal returns (Transaction memory) {
+        bytes memory txParam = abi.encode(MintTransactionParams(_tokenTicker, _owner, _supply));
+        return createTransaction(_owner, 0, txParam);
+    }
+
+    function createTransferTransaction(
+        string memory _tokenTicker,
+        address _from,
+        address _to,
+        uint16 _amount
+    ) internal returns (Transaction memory) {
+        bytes memory txParam = abi.encode(TransferTransactionParams(_tokenTicker, _to, _amount));
+        return createTransaction(_from, 1, txParam);
+    }
+
     function testGetBalance() external view {
         assertEq(getBalance("TST", address(this)), 0);
     }
@@ -31,115 +66,67 @@ contract SPVMTest is Test, SPVM {
     }
 
     function testExecuteRawMintTransaction() external {
-        bytes memory txParam = abi.encode(
-            MintTransactionParams("TST", address(this), 100)
-        );
-        bytes memory rawTx = abi.encode(
-            TransactionContent(address(this), 0, txParam)
-        );
-        executeRawTransaction(rawTx);
+        Transaction memory tx1 = createMintTransaction("TST", address(this), 100);
+
+        // Execute the transaction
+        executeRawTransaction(encodeRawTransaction(tx1));
         assertEq(getBalance("TST", address(this)), 100);
         assertEq(getBalance("TST", address(1)), 0);
 
-        bytes memory txParam2 = abi.encode(
-            MintTransactionParams("TST2", address(1), 200)
-        );
-        bytes memory rawTx2 = abi.encode(
-            TransactionContent(address(1), 0, txParam2)
-        );
-        executeRawTransaction(rawTx2);
+        Transaction memory tx2 = createMintTransaction("TST2", address(1), 200);
+
+        // Execute the second transaction
+        executeRawTransaction(encodeRawTransaction(tx2));
         assertEq(getBalance("TST2", address(1)), 200);
         assertEq(getBalance("TST2", address(this)), 0);
         assertEq(getBalance("TST", address(this)), 100);
     }
 
     function testExecuteRawTransferTransaction() external {
-        bytes memory txParam = abi.encode(
-            MintTransactionParams("TST", address(this), 100)
-        );
-        bytes memory rawTx = abi.encode(
-            TransactionContent(address(this), 0, txParam)
-        );
-        executeRawTransaction(rawTx);
+        Transaction memory tx1 = createMintTransaction("TST", address(this), 100);
+        executeRawTransaction(encodeRawTransaction(tx1));
         assertEq(getBalance("TST", address(this)), 100);
         assertEq(getBalance("TST", address(1)), 0);
 
-        bytes memory txParam2 = abi.encode(
-            MintTransactionParams("TST2", address(1), 200)
-        );
-        bytes memory rawTx2 = abi.encode(
-            TransactionContent(address(1), 0, txParam2)
-        );
-        executeRawTransaction(rawTx2);
+        Transaction memory tx2 = createMintTransaction("TST2", address(1), 200);
+        executeRawTransaction(encodeRawTransaction(tx2));
         assertEq(getBalance("TST2", address(1)), 200);
         assertEq(getBalance("TST2", address(this)), 0);
         assertEq(getBalance("TST", address(this)), 100);
 
-        bytes memory txParam3 = abi.encode(
-            TransferTransactionParams("TST", address(1), 50)
-        );
-        bytes memory rawTx3 = abi.encode(
-            TransactionContent(address(this), 1, txParam3)
-        );
-        executeRawTransaction(rawTx3);
+        Transaction memory tx3 = createTransferTransaction("TST", address(this), address(1), 50);
+        executeRawTransaction(encodeRawTransaction(tx3));
         assertEq(getBalance("TST", address(this)), 50);
         assertEq(getBalance("TST", address(1)), 50);
 
         // self transfer
-        bytes memory txParam4 = abi.encode(
-            TransferTransactionParams("TST", address(this), 25)
-        );
-        bytes memory rawTx4 = abi.encode(
-            TransactionContent(address(this), 1, txParam4)
-        );
-        executeRawTransaction(rawTx4);
+        Transaction memory tx4 = createTransferTransaction("TST", address(this), address(this), 50);
+        executeRawTransaction(encodeRawTransaction(tx4));
         assertEq(getBalance("TST", address(this)), 50);
     }
 
     // check that function reverts when it should
     function testValidityChecking() external {
         // token already initialized
-        bytes memory txParam = abi.encode(
-            MintTransactionParams("TST", address(this), 100)
-        );
-        bytes memory rawTx = abi.encode(
-            TransactionContent(address(this), 0, txParam)
-        );
-        executeRawTransaction(rawTx);
-        bytes memory rawTx2 = abi.encode(
-            TransactionContent(address(this), 0, txParam)
-        );
+        Transaction memory tx1 = createMintTransaction("TST", address(this), 100);
+        executeRawTransaction(encodeRawTransaction(tx1));
+        Transaction memory tx2 = createMintTransaction("TST", address(this), 100);
         vm.expectRevert("Token already initialized");
-        executeRawTransaction(rawTx2);
+        executeRawTransaction(encodeRawTransaction(tx2));
 
         // token not initialized
-        bytes memory txParam3 = abi.encode(
-            TransferTransactionParams("TST2", address(1), 50)
-        );
-        bytes memory rawTx3 = abi.encode(
-            TransactionContent(address(this), 1, txParam3)
-        );
+        Transaction memory tx3 = createTransferTransaction("TST", address(this), address(1), 50);
         vm.expectRevert("Token not initialized");
-        executeRawTransaction(rawTx3);
+        executeRawTransaction(encodeRawTransaction(tx3));
 
         // Insufficient balance
-        bytes memory txParam4 = abi.encode(
-            TransferTransactionParams("TST", address(1), 50)
-        );
-        bytes memory rawTx4 = abi.encode(
-            TransactionContent(address(this), 1, txParam4)
-        );
+        Transaction memory tx4 = createTransferTransaction("TST", address(this), address(1), 100);
         vm.expectRevert("Insufficient balance");
-        executeRawTransaction(rawTx4);
+        executeRawTransaction(encodeRawTransaction(tx4));
 
-        bytes memory txParam5 = abi.encode(
-            MintTransactionParams("TST2", address(this), 999)
-        );
-        bytes memory rawTx5 = abi.encode(
-            TransactionContent(address(this), 0, txParam5)
-        );
+        Transaction memory tx5 = createTransferTransaction("TST", address(1), address(this), 100);
         vm.expectRevert("Insufficient balance");
-        executeRawTransaction(rawTx5);
+        executeRawTransaction(encodeRawTransaction(tx5));
 
         // Invalid transaction
         bytes memory txParam6 = abi.encode(
