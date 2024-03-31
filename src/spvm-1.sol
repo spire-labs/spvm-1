@@ -93,20 +93,18 @@ contract SPVM {
                 txContent.txParam,
                 (TransferTransactionParams)
             );
-            uint16 fromBalance = this.getBalance(
+            setBalance(
                 transferParams.tokenTicker,
-                txContent.from
+                txContent.from,
+                getBalance(transferParams.tokenTicker, txContent.from) -
+                    transferParams.amount
             );
-            uint16 toBalance = this.getBalance(
+            setBalance(
                 transferParams.tokenTicker,
-                transferParams.to
+                transferParams.to,
+                getBalance(transferParams.tokenTicker, transferParams.to) +
+                    transferParams.amount
             );
-            state[transferParams.tokenTicker][txContent.from] =
-                fromBalance -
-                transferParams.amount;
-            state[transferParams.tokenTicker][transferParams.to] =
-                toBalance +
-                transferParams.amount;
         }
     }
 

@@ -64,6 +64,12 @@ contract SPVMTest is Test, SPVM {
         executeRawTransaction(rawTx3);
         assertEq(getBalance("TST", address(this)), 50);
         assertEq(getBalance("TST", address(1)), 50);
+
+        // self transfer
+        bytes memory txParam4 = abi.encode(TransferTransactionParams("TST", address(this), 25));
+        bytes memory rawTx4 = abi.encode(TransactionContent(address(this), 1, txParam4));
+        executeRawTransaction(rawTx4);
+        assertEq(getBalance("TST", address(this)), 50);
     }
 
     // check that function reverts when it should
