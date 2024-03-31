@@ -131,7 +131,7 @@ contract SPVMTest is Test, SPVM {
 
     ////// BLOCK ///////
     function testInitialBlockState() external view {
-        assert(blocks[0].blockNumber == 1);
+        assert(blocks[0].blockNumber == 0);
         assert(blocks[0].parentHash == bytes32(0));
         assert(blocks[0].blockHash == bytes32(0));
         assert(blocks[0].transactions.length == 0);

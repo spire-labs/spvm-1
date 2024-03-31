@@ -9,8 +9,9 @@ import "openzeppelin-contracts/contracts/utils/cryptography/SignatureChecker.sol
 contract SPVM {
     mapping(string => bool) public initialized_tickers;
     mapping(string => mapping(address => uint16)) public state;
-    // all historical blocks
-    Block[] public blocks; 
+    // all historical blocks (blockNumber => Block)
+    mapping(uint32 => Block) public blocks; 
+    uint32 public blockNumber = 0;
 
     struct TransactionContent {
         address from;
@@ -45,14 +46,10 @@ contract SPVM {
 
     constructor() {
         // create genesis block
-        Block storage genesisBlock = blocks.push();
-
-        genesisBlock.blockHash = 0;
-        genesisBlock.parentHash = 0;
-        genesisBlock.blockNumber = 1;
-
-
-        blocks.push(genesisBlock);
+        Block storage genesisBlock = blocks[0];
+        genesisBlock.blockNumber = 0;
+        genesisBlock.blockHash = bytes32(0);
+        genesisBlock.parentHash = bytes32(0);
     }
 
     // Function to set a balance in the nested map
@@ -185,8 +182,10 @@ contract SPVM {
     function proposeBlock (
         Block calldata proposed_block
     ) external {
+        blockNumber += 1;
+
         // get most recent block
-        Block storage lastBlock = blocks[blocks.length - 1];
+        Block storage lastBlock = blocks[blockNumber - 1];
 
         require(
             proposed_block.blockHash == keccak256(abi.encodePacked(proposed_block.parentHash,abi.encode(proposed_block.transactions))),
@@ -201,7 +200,7 @@ contract SPVM {
             "Invalid parent hash"
         );
 
-        blocks.push(proposed_block);
+        blocks[blockNumber] = proposed_block;
 
         executeBlockTransactions(proposed_block.transactions);
     }
