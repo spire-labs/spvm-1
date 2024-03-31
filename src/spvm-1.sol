@@ -172,6 +172,7 @@ contract SPVM {
         Transaction[] memory txs
     ) internal {
         for (uint i = 0; i < txs.length; i++) {
+            // note: reverting transactions revert the entire block
             executeTx(txs[i]);
         }
     }
