@@ -176,18 +176,18 @@ contract SPVMTest is Test, SPVM {
             100,
             1
         );
-        vm.expectRevert("Token already initialized");
+        vm.expectRevert(bytes("Token already initialized"));
         executeRawTransaction(encodeRawTransactionContents(tx2));
 
         // token not initialized
         Transaction memory tx3 = createTransferTransaction(
-            "TST",
+            "NOTTST",
             address(this),
             address(1),
             50,
             1
         );
-        vm.expectRevert("Token not initialized");
+        vm.expectRevert(bytes("Token not initialized"));
         executeRawTransaction(encodeRawTransactionContents(tx3));
 
         // Insufficient balance
@@ -198,7 +198,7 @@ contract SPVMTest is Test, SPVM {
             100,
             1
         );
-        vm.expectRevert("Insufficient balance");
+        vm.expectRevert(bytes("Insufficient balance"));
         executeRawTransaction(encodeRawTransactionContents(tx4));
 
         Transaction memory tx5 = createTransferTransaction(
@@ -208,7 +208,7 @@ contract SPVMTest is Test, SPVM {
             100,
             1
         );
-        vm.expectRevert("Insufficient balance");
+        vm.expectRevert(bytes("Insufficient balance"));
         executeRawTransaction(encodeRawTransactionContents(tx5));
 
         // Invalid transaction
@@ -218,7 +218,7 @@ contract SPVMTest is Test, SPVM {
         bytes memory rawTx6 = abi.encode(
             TransactionContent(address(this), 2, txParam6, 1)
         );
-        vm.expectRevert("Invalid transaction type");
+        vm.expectRevert(bytes("Invalid transaction type"));
         executeRawTransaction(rawTx6);
 
         // invalid nonce
@@ -229,7 +229,7 @@ contract SPVMTest is Test, SPVM {
             100,
             0
         );
-        vm.expectRevert("Invalid nonce");
+        vm.expectRevert(bytes("Invalid nonce"));
         executeTx(tx7);
     }
 
