@@ -18,36 +18,40 @@ contract SPVMTest is Test, SPVM {
     function createTransaction(
         address _signer,
         uint8 _type,
-        bytes memory _params
+        bytes memory _params,
+        uint32 _nonce
     ) internal returns (Transaction memory) {
-        bytes memory rawTx = abi.encode(TransactionContent(_signer, _type, _params));
+        bytes memory rawTx = abi.encode(TransactionContent(_signer, _type, _params, _nonce));
         bytes32 txHash = keccak256(rawTx);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, txHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        return Transaction(TransactionContent(_signer, _type, _params), txHash, signature);
+        return Transaction(TransactionContent(_signer, _type, _params, _nonce), txHash, signature);
     }
 
     function encodeRawTransaction(Transaction memory _tx) internal returns (bytes memory) {
-        return abi.encode(_tx.txContent, _tx.transactionHash, _tx.signature);
+        return abi.encode(_tx.txContent);
     }
 
     function createMintTransaction(
         string memory _tokenTicker,
+        address _from,
         address _owner,
-        uint16 _supply
+        uint16 _supply,
+        uint32 _nonce
     ) internal returns (Transaction memory) {
         bytes memory txParam = abi.encode(MintTransactionParams(_tokenTicker, _owner, _supply));
-        return createTransaction(_owner, 0, txParam);
+        return createTransaction(_from, 0, txParam, _nonce);
     }
 
     function createTransferTransaction(
         string memory _tokenTicker,
         address _from,
         address _to,
-        uint16 _amount
+        uint16 _amount,
+        uint32 _nonce
     ) internal returns (Transaction memory) {
         bytes memory txParam = abi.encode(TransferTransactionParams(_tokenTicker, _to, _amount));
-        return createTransaction(_from, 1, txParam);
+        return createTransaction(_from, 1, txParam, _nonce);
     }
 
     function testGetBalance() external view {
@@ -66,14 +70,14 @@ contract SPVMTest is Test, SPVM {
     }
 
     function testExecuteRawMintTransaction() external {
-        Transaction memory tx1 = createMintTransaction("TST", address(this), 100);
+        Transaction memory tx1 = createMintTransaction("TST", address(this), address(this), 100, 0);
 
         // Execute the transaction
         executeRawTransaction(encodeRawTransaction(tx1));
         assertEq(getBalance("TST", address(this)), 100);
         assertEq(getBalance("TST", address(1)), 0);
 
-        Transaction memory tx2 = createMintTransaction("TST2", address(1), 200);
+        Transaction memory tx2 = createMintTransaction("TST2", address(this), address(1), 200, 1);
 
         // Execute the second transaction
         executeRawTransaction(encodeRawTransaction(tx2));
@@ -83,24 +87,24 @@ contract SPVMTest is Test, SPVM {
     }
 
     function testExecuteRawTransferTransaction() external {
-        Transaction memory tx1 = createMintTransaction("TST", address(this), 100);
+        Transaction memory tx1 = createMintTransaction("TST", address(this), address(this), 100, 0);
         executeRawTransaction(encodeRawTransaction(tx1));
         assertEq(getBalance("TST", address(this)), 100);
         assertEq(getBalance("TST", address(1)), 0);
 
-        Transaction memory tx2 = createMintTransaction("TST2", address(1), 200);
+        Transaction memory tx2 = createMintTransaction("TST2", address(1), address(1), 200, 0);
         executeRawTransaction(encodeRawTransaction(tx2));
         assertEq(getBalance("TST2", address(1)), 200);
         assertEq(getBalance("TST2", address(this)), 0);
         assertEq(getBalance("TST", address(this)), 100);
 
-        Transaction memory tx3 = createTransferTransaction("TST", address(this), address(1), 50);
+        Transaction memory tx3 = createTransferTransaction("TST", address(this), address(1), 50, 1);
         executeRawTransaction(encodeRawTransaction(tx3));
         assertEq(getBalance("TST", address(this)), 50);
         assertEq(getBalance("TST", address(1)), 50);
 
         // self transfer
-        Transaction memory tx4 = createTransferTransaction("TST", address(this), address(this), 50);
+        Transaction memory tx4 = createTransferTransaction("TST", address(this), address(this), 50, 2);
         executeRawTransaction(encodeRawTransaction(tx4));
         assertEq(getBalance("TST", address(this)), 50);
     }
@@ -108,23 +112,23 @@ contract SPVMTest is Test, SPVM {
     // check that function reverts when it should
     function testValidityChecking() external {
         // token already initialized
-        Transaction memory tx1 = createMintTransaction("TST", address(this), 100);
+        Transaction memory tx1 = createMintTransaction("TST", address(this), address(this), 100, 0);
         executeRawTransaction(encodeRawTransaction(tx1));
-        Transaction memory tx2 = createMintTransaction("TST", address(this), 100);
+        Transaction memory tx2 = createMintTransaction("TST", address(this), address(this), 100, 1);
         vm.expectRevert("Token already initialized");
         executeRawTransaction(encodeRawTransaction(tx2));
 
         // token not initialized
-        Transaction memory tx3 = createTransferTransaction("TST", address(this), address(1), 50);
+        Transaction memory tx3 = createTransferTransaction("TST", address(this), address(1), 50, 1);
         vm.expectRevert("Token not initialized");
         executeRawTransaction(encodeRawTransaction(tx3));
 
         // Insufficient balance
-        Transaction memory tx4 = createTransferTransaction("TST", address(this), address(1), 100);
+        Transaction memory tx4 = createTransferTransaction("TST", address(this), address(1), 100, 1);
         vm.expectRevert("Insufficient balance");
         executeRawTransaction(encodeRawTransaction(tx4));
 
-        Transaction memory tx5 = createTransferTransaction("TST", address(1), address(this), 100);
+        Transaction memory tx5 = createTransferTransaction("TST", address(1), address(this), 100, 1);
         vm.expectRevert("Insufficient balance");
         executeRawTransaction(encodeRawTransaction(tx5));
 
@@ -133,10 +137,15 @@ contract SPVMTest is Test, SPVM {
             MintTransactionParams("TST", address(this), 100)
         );
         bytes memory rawTx6 = abi.encode(
-            TransactionContent(address(this), 2, txParam6)
+            TransactionContent(address(this), 2, txParam6, 1)
         );
         vm.expectRevert("Invalid transaction type");
         executeRawTransaction(rawTx6);
+
+        // invalid nonce
+        Transaction memory tx7 = createMintTransaction("TST2", address(this), address(this), 100, 0);
+        vm.expectRevert("Invalid nonce");
+        executeTx(tx7);
     }
 
     function testValidateSignature() external view {
@@ -157,18 +166,7 @@ contract SPVMTest is Test, SPVM {
 
     // test executeTx
     function testExecuteTx() external {
-        bytes memory txParam = abi.encode(
-            MintTransactionParams("TST", signer, 100)
-        );
-        bytes memory rawTx = abi.encode(TransactionContent(signer, 0, txParam));
-        bytes32 txHash = keccak256(rawTx);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, txHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-        Transaction memory Tx = Transaction(
-            TransactionContent(signer, 0, txParam),
-            txHash,
-            signature
-        );
+        Transaction memory Tx = createMintTransaction("TST", signer, signer, 100, 0);
         executeTx(Tx);
         assertEq(getBalance("TST", signer), 100);
     }
@@ -182,49 +180,12 @@ contract SPVMTest is Test, SPVM {
     }
 
     function testExecuteBlockTransactions() external {
-        bytes memory txParam = abi.encode(
-            MintTransactionParams("TST", signer, 100)
-        );
-        bytes memory rawTx = abi.encode(TransactionContent(signer, 0, txParam));
-        bytes32 txHash = keccak256(rawTx);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, txHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-        Transaction memory Tx = Transaction(
-            TransactionContent(signer, 0, txParam),
-            txHash,
-            signature
-        );
+        Transaction memory Tx = createMintTransaction("TST", signer, signer, 100, 0);
 
-        bytes memory txParam2 = abi.encode(
-            MintTransactionParams("TST2", signer, 200)
-        );
-        bytes memory rawTx2 = abi.encode(
-            TransactionContent(signer, 0, txParam2)
-        );
-        bytes32 txHash2 = keccak256(rawTx2);
-        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(pk, txHash2);
-        bytes memory signature2 = abi.encodePacked(r2, s2, v2);
-        Transaction memory Tx2 = Transaction(
-            TransactionContent(signer, 0, txParam2),
-            txHash2,
-            signature2
-        );
+        Transaction memory Tx2 = createMintTransaction("TST2", signer, signer, 200, 1);
 
         // transfer
-        bytes memory txParam3 = abi.encode(
-            TransferTransactionParams("TST2", address(1), 50)
-        );
-        bytes memory rawTx3 = abi.encode(
-            TransactionContent(signer, 1, txParam3)
-        );
-        bytes32 txHash3 = keccak256(rawTx3);
-        (uint8 v3, bytes32 r3, bytes32 s3) = vm.sign(pk, txHash3);
-        bytes memory signature3 = abi.encodePacked(r3, s3, v3);
-        Transaction memory Tx3 = Transaction(
-            TransactionContent(signer, 1, txParam3),
-            txHash3,
-            signature3
-        );
+        Transaction memory Tx3 = createTransferTransaction("TST2", signer, address(1), 50, 2);
 
         Transaction[] memory txs = new Transaction[](3);
         txs[0] = Tx;
@@ -261,18 +222,7 @@ contract SPVMTest is Test, SPVM {
 
     function testProposeBlock() external {
         // propose a block with one transaction
-        bytes memory txParam = abi.encode(
-            MintTransactionParams("TST", signer, 100)
-        );
-        bytes memory rawTx = abi.encode(TransactionContent(signer, 0, txParam));
-        bytes32 txHash = keccak256(rawTx);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, txHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-        Transaction memory Tx = Transaction(
-            TransactionContent(signer, 0, txParam),
-            txHash,
-            signature
-        );
+        Transaction memory Tx = createMintTransaction("TST", signer, signer, 100, 0);
 
         Transaction[] memory txs = new Transaction[](1);
         txs[0] = Tx;
@@ -299,20 +249,7 @@ contract SPVMTest is Test, SPVM {
         assertEq(getBalance("TST", signer), 100);
 
         // second block
-        bytes memory txParam2 = abi.encode(
-            TransferTransactionParams("TST", address(1), 50)
-        );
-        bytes memory rawTx2 = abi.encode(
-            TransactionContent(signer, 1, txParam2)
-        );
-        bytes32 txHash2 = keccak256(rawTx2);
-        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(pk, txHash2);
-        bytes memory signature2 = abi.encodePacked(r2, s2, v2);
-        Transaction memory Tx2 = Transaction(
-            TransactionContent(signer, 1, txParam2),
-            txHash2,
-            signature2
-        );
+        Transaction memory Tx2 = createTransferTransaction("TST", signer, address(1), 50, 1);
 
         Transaction[] memory txs2 = new Transaction[](1);
         txs2[0] = Tx2;
@@ -342,34 +279,10 @@ contract SPVMTest is Test, SPVM {
 
     function testProposeBlockWithMultipleTxs() external {
         // mint
-        bytes memory txParam = abi.encode(
-            MintTransactionParams("TST", signer, 100)
-        );
-        bytes memory rawTx = abi.encode(TransactionContent(signer, 0, txParam));
-        bytes32 txHash = keccak256(rawTx);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, txHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-        Transaction memory Tx = Transaction(
-            TransactionContent(signer, 0, txParam),
-            txHash,
-            signature
-        );
+        Transaction memory Tx = createMintTransaction("TST", signer, signer, 100, 0);
 
         // transfer
-        bytes memory txParam2 = abi.encode(
-            TransferTransactionParams("TST", address(1), 50)
-        );
-        bytes memory rawTx2 = abi.encode(
-            TransactionContent(signer, 1, txParam2)
-        );
-        bytes32 txHash2 = keccak256(rawTx2);
-        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(pk, txHash2);
-        bytes memory signature2 = abi.encodePacked(r2, s2, v2);
-        Transaction memory Tx2 = Transaction(
-            TransactionContent(signer, 1, txParam2),
-            txHash2,
-            signature2
-        );
+        Transaction memory Tx2 = createTransferTransaction("TST", signer, address(1), 50, 1);
 
         Transaction[] memory txs = new Transaction[](2);
         txs[0] = Tx;
