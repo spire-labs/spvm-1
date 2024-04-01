@@ -196,7 +196,6 @@ contract SPVM {
         }
     }
 
-    // TODO: add permissions
     function proposeBlock(Block calldata proposed_block) external {
         // validate proposer signature
         require(
