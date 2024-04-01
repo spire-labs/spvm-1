@@ -28,7 +28,7 @@ contract SPVMTest is Test, SPVM {
         return Transaction(TransactionContent(_signer, _type, _params, _nonce), txHash, signature);
     }
 
-    function encodeRawTransaction(Transaction memory _tx) internal returns (bytes memory) {
+    function encodeRawTransactionContents(Transaction memory _tx) internal returns (bytes memory) {
         return abi.encode(_tx.txContent);
     }
 
@@ -73,14 +73,14 @@ contract SPVMTest is Test, SPVM {
         Transaction memory tx1 = createMintTransaction("TST", address(this), address(this), 100, 0);
 
         // Execute the transaction
-        executeRawTransaction(encodeRawTransaction(tx1));
+        executeRawTransaction(encodeRawTransactionContents(tx1));
         assertEq(getBalance("TST", address(this)), 100);
         assertEq(getBalance("TST", address(1)), 0);
 
         Transaction memory tx2 = createMintTransaction("TST2", address(this), address(1), 200, 1);
 
         // Execute the second transaction
-        executeRawTransaction(encodeRawTransaction(tx2));
+        executeRawTransaction(encodeRawTransactionContents(tx2));
         assertEq(getBalance("TST2", address(1)), 200);
         assertEq(getBalance("TST2", address(this)), 0);
         assertEq(getBalance("TST", address(this)), 100);
@@ -88,24 +88,24 @@ contract SPVMTest is Test, SPVM {
 
     function testExecuteRawTransferTransaction() external {
         Transaction memory tx1 = createMintTransaction("TST", address(this), address(this), 100, 0);
-        executeRawTransaction(encodeRawTransaction(tx1));
+        executeRawTransaction(encodeRawTransactionContents(tx1));
         assertEq(getBalance("TST", address(this)), 100);
         assertEq(getBalance("TST", address(1)), 0);
 
         Transaction memory tx2 = createMintTransaction("TST2", address(1), address(1), 200, 0);
-        executeRawTransaction(encodeRawTransaction(tx2));
+        executeRawTransaction(encodeRawTransactionContents(tx2));
         assertEq(getBalance("TST2", address(1)), 200);
         assertEq(getBalance("TST2", address(this)), 0);
         assertEq(getBalance("TST", address(this)), 100);
 
         Transaction memory tx3 = createTransferTransaction("TST", address(this), address(1), 50, 1);
-        executeRawTransaction(encodeRawTransaction(tx3));
+        executeRawTransaction(encodeRawTransactionContents(tx3));
         assertEq(getBalance("TST", address(this)), 50);
         assertEq(getBalance("TST", address(1)), 50);
 
         // self transfer
         Transaction memory tx4 = createTransferTransaction("TST", address(this), address(this), 50, 2);
-        executeRawTransaction(encodeRawTransaction(tx4));
+        executeRawTransaction(encodeRawTransactionContents(tx4));
         assertEq(getBalance("TST", address(this)), 50);
     }
 
@@ -113,24 +113,24 @@ contract SPVMTest is Test, SPVM {
     function testValidityChecking() external {
         // token already initialized
         Transaction memory tx1 = createMintTransaction("TST", address(this), address(this), 100, 0);
-        executeRawTransaction(encodeRawTransaction(tx1));
+        executeRawTransaction(encodeRawTransactionContents(tx1));
         Transaction memory tx2 = createMintTransaction("TST", address(this), address(this), 100, 1);
         vm.expectRevert("Token already initialized");
-        executeRawTransaction(encodeRawTransaction(tx2));
+        executeRawTransaction(encodeRawTransactionContents(tx2));
 
         // token not initialized
         Transaction memory tx3 = createTransferTransaction("TST", address(this), address(1), 50, 1);
         vm.expectRevert("Token not initialized");
-        executeRawTransaction(encodeRawTransaction(tx3));
+        executeRawTransaction(encodeRawTransactionContents(tx3));
 
         // Insufficient balance
         Transaction memory tx4 = createTransferTransaction("TST", address(this), address(1), 100, 1);
         vm.expectRevert("Insufficient balance");
-        executeRawTransaction(encodeRawTransaction(tx4));
+        executeRawTransaction(encodeRawTransactionContents(tx4));
 
         Transaction memory tx5 = createTransferTransaction("TST", address(1), address(this), 100, 1);
         vm.expectRevert("Insufficient balance");
-        executeRawTransaction(encodeRawTransaction(tx5));
+        executeRawTransaction(encodeRawTransactionContents(tx5));
 
         // Invalid transaction
         bytes memory txParam6 = abi.encode(
@@ -199,10 +199,10 @@ contract SPVMTest is Test, SPVM {
     }
 
     function testProposeEmptyBlock() external {
-        bytes memory txs_raw = abi.encode(new Transaction[](0));
+        bytes memory txs = abi.encode(new Transaction[](0));
 
         bytes32 blockHash = keccak256(
-            abi.encodePacked(blocks[0].blockHash, txs_raw)
+            abi.encodePacked(blocks[0].blockHash, txs)
         );
 
         Block memory b = Block({
@@ -227,10 +227,10 @@ contract SPVMTest is Test, SPVM {
         Transaction[] memory txs = new Transaction[](1);
         txs[0] = Tx;
 
-        bytes memory txs_raw = abi.encode(txs);
+        bytes memory encoded_txs = abi.encode(txs);
 
         bytes32 blockHash = keccak256(
-            abi.encodePacked(blocks[0].blockHash, txs_raw)
+            abi.encodePacked(blocks[0].blockHash, encoded_txs)
         );
 
         Block memory b = Block({
@@ -254,10 +254,10 @@ contract SPVMTest is Test, SPVM {
         Transaction[] memory txs2 = new Transaction[](1);
         txs2[0] = Tx2;
 
-        bytes memory txs_raw2 = abi.encode(txs2);
+        bytes memory encoded_txs2 = abi.encode(txs2);
 
         bytes32 blockHash2 = keccak256(
-            abi.encodePacked(blocks[1].blockHash, txs_raw2)
+            abi.encodePacked(blocks[1].blockHash, encoded_txs2)
         );
 
         Block memory b2 = Block({
@@ -288,10 +288,10 @@ contract SPVMTest is Test, SPVM {
         txs[0] = Tx;
         txs[1] = Tx2;
 
-        bytes memory txs_raw = abi.encode(txs);
+        bytes memory encoded_txs = abi.encode(txs);
 
         bytes32 blockHash = keccak256(
-            abi.encodePacked(blocks[0].blockHash, txs_raw)
+            abi.encodePacked(blocks[0].blockHash, encoded_txs)
         );
 
         Block memory b = Block({
