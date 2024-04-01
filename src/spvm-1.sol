@@ -9,6 +9,7 @@ import "openzeppelin-contracts/contracts/utils/cryptography/SignatureChecker.sol
 contract SPVM {
     mapping(string => bool) public initialized_tickers;
     mapping(string => mapping(address => uint16)) public state;
+    mapping(address => uint32) public nonces;
     // all historical blocks (blockNumber => Block)
     mapping(uint32 => Block) public blocks;
     uint32 public blockNumber = 0;
@@ -17,6 +18,7 @@ contract SPVM {
         address from;
         uint8 txType; // only first 2 bits used
         bytes txParam; // abi encoded parameters
+        uint32 nonce;
     }
 
     struct MintTransactionParams {
@@ -106,6 +108,7 @@ contract SPVM {
                     transferParams.amount
             );
         }
+        nonces[txContent.from] += 1;
     }
 
     function checkValidity(
@@ -137,6 +140,10 @@ contract SPVM {
         } else {
             revert("Invalid transaction type");
         }
+        require(
+            nonces[txContent.from] == txContent.nonce,
+            "Invalid nonce"
+        );
         return true;
     }
 
