@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 
 import "openzeppelin-contracts/contracts/utils/cryptography/SignatureChecker.sol";
 
+import "./electionInterface.sol";
+
 /// @title Spire PoC Virtual Machine - version 1 - interpreter
 /// @author mteam
 contract SPVM {
@@ -13,6 +15,8 @@ contract SPVM {
     // all historical blocks (blockNumber => Block)
     mapping(uint32 => Block) public blocks;
     uint32 public blockNumber = 0;
+
+    ElectionInterface public electionContract;
 
     struct TransactionContent {
         address from;
@@ -38,6 +42,8 @@ contract SPVM {
         bytes32 blockHash;
         bytes32 parentHash;
         uint32 blockNumber;
+        address proposer;
+        bytes proposer_signature;
     }
 
     struct Transaction {
@@ -52,6 +58,14 @@ contract SPVM {
         genesisBlock.blockNumber = 0;
         genesisBlock.blockHash = bytes32(0);
         genesisBlock.parentHash = bytes32(0);
+    }
+
+    function setElectionContract(ElectionInterface _electionContract) external {
+        require(
+            address(electionContract) == address(0),
+            "Election contract already set"
+        );
+        electionContract = _electionContract;
     }
 
     // Function to set a balance in the nested map
@@ -146,14 +160,14 @@ contract SPVM {
 
     // recover signer of transaction from signature
     function validateSignature(
-        bytes32 transaction_hash,
+        bytes32 message_hash,
         bytes memory signature,
         address expected_signer
     ) internal view returns (bool) {
         return
             SignatureChecker.isValidSignatureNow(
                 expected_signer,
-                transaction_hash,
+                message_hash,
                 signature
             );
     }
@@ -184,6 +198,24 @@ contract SPVM {
 
     // TODO: add permissions
     function proposeBlock(Block calldata proposed_block) external {
+        // validate proposer signature
+        require(
+            validateSignature(
+                proposed_block.blockHash,
+                proposed_block.proposer_signature,
+                proposed_block.proposer
+            ),
+            "Invalid proposer signature"
+        );
+
+        // check that proposer is winner of election if electionContract is set
+        if (address(electionContract) != address(0)) {
+            require(
+                proposed_block.proposer == electionContract.getWinner(blockNumber),
+                "proposer was not winner"
+            );
+        }
+
         blockNumber += 1;
 
         // get most recent block

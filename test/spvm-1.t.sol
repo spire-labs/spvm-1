@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import "forge-std/Test.sol";
 
 import "../src/spvm-1.sol";
+import "../src/electionInterface.sol";
 
 contract SPVMTest is Test, SPVM {
     uint256 internal pk;
@@ -25,14 +26,18 @@ contract SPVMTest is Test, SPVM {
             TransactionContent(_signer, _type, _params, _nonce)
         );
         bytes32 txHash = keccak256(rawTx);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, txHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
+        bytes memory signature = signHash(pk, txHash);
         return
             Transaction(
                 TransactionContent(_signer, _type, _params, _nonce),
                 txHash,
                 signature
             );
+    }
+
+    function signHash(uint256 _pk, bytes32 _hash) internal pure returns (bytes memory) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_pk, _hash);
+        return abi.encodePacked(r, s, v);
     }
 
     function encodeRawTransactionContents(
@@ -359,7 +364,9 @@ contract SPVMTest is Test, SPVM {
             blockNumber: 1,
             parentHash: blocks[0].blockHash,
             blockHash: blockHash,
-            transactions: new Transaction[](0)
+            transactions: new Transaction[](0),
+            proposer: signer,
+            proposer_signature: signHash(pk, blockHash)
         });
 
         this.proposeBlock(b);
@@ -393,7 +400,9 @@ contract SPVMTest is Test, SPVM {
             blockNumber: 1,
             parentHash: blocks[0].blockHash,
             blockHash: blockHash,
-            transactions: txs
+            transactions: txs,
+            proposer: signer,
+            proposer_signature: signHash(pk, blockHash)
         });
 
         this.proposeBlock(b);
@@ -426,7 +435,9 @@ contract SPVMTest is Test, SPVM {
             blockNumber: 2,
             parentHash: blocks[1].blockHash,
             blockHash: blockHash2,
-            transactions: txs2
+            transactions: txs2,
+            proposer: signer,
+            proposer_signature: signHash(pk, blockHash)
         });
 
         this.proposeBlock(b2);
@@ -472,7 +483,9 @@ contract SPVMTest is Test, SPVM {
             blockNumber: 1,
             parentHash: blocks[0].blockHash,
             blockHash: blockHash,
-            transactions: txs
+            transactions: txs,
+            proposer: signer,
+            proposer_signature: signHash(pk, blockHash)
         });
 
         this.proposeBlock(b);
@@ -483,5 +496,74 @@ contract SPVMTest is Test, SPVM {
         assertEq(blocks[1].transactions.length, 2);
         assertEq(getBalance("TST", signer), 50);
         assertEq(getBalance("TST", address(1)), 50);
+    }
+
+    // test block proposal permissioning
+    function testProposeBlockWithElectionContract() external {
+        ElectionContract electionContract = new ElectionContract();
+        this.setElectionContract(electionContract);
+
+        // mint
+        Transaction memory Tx = createMintTransaction(
+            "TST",
+            signer,
+            signer,
+            100,
+            0
+        );
+
+        // transfer
+        Transaction memory Tx2 = createTransferTransaction(
+            "TST",
+            signer,
+            address(1),
+            50,
+            1
+        );
+
+        Transaction[] memory txs = new Transaction[](2);
+        txs[0] = Tx;
+        txs[1] = Tx2;
+
+        bytes memory encoded_txs = abi.encode(txs);
+
+        bytes32 blockHash = keccak256(
+            abi.encodePacked(blocks[0].blockHash, encoded_txs)
+        );
+
+        Block memory b = Block({
+            blockNumber: 1,
+            parentHash: blocks[0].blockHash,
+            blockHash: blockHash,
+            transactions: txs,
+            proposer: signer,
+            proposer_signature: signHash(pk, blockHash)
+        });
+
+        // set winner
+        electionContract.setWinner(signer);
+
+        this.proposeBlock(b);
+
+        assertEq(blocks[1].blockNumber, 1);
+        assertEq(blocks[1].parentHash, blocks[0].blockHash);
+        assertEq(blocks[1].blockHash, blockHash);
+        assertEq(blocks[1].transactions.length, 2);
+        assertEq(getBalance("TST", signer), 50);
+        assertEq(getBalance("TST", address(1)), 50);
+    }
+
+}
+
+// election contract implementation for testing
+contract ElectionContract is ElectionInterface {
+    address public winner;
+
+    function setWinner(address _winner) public {
+        winner = _winner;
+    }
+
+    function getWinner(uint /* block_number */) public view returns (address) {
+        return winner;
     }
 }
