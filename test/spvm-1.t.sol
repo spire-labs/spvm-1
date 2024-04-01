@@ -20,7 +20,7 @@ contract SPVMTest is Test, SPVM {
         uint8 _type,
         bytes memory _params,
         uint32 _nonce
-    ) internal returns (Transaction memory) {
+    ) internal view returns (Transaction memory) {
         bytes memory rawTx = abi.encode(
             TransactionContent(_signer, _type, _params, _nonce)
         );
@@ -37,7 +37,7 @@ contract SPVMTest is Test, SPVM {
 
     function encodeRawTransactionContents(
         Transaction memory _tx
-    ) internal returns (bytes memory) {
+    ) internal pure returns (bytes memory) {
         return abi.encode(_tx.txContent);
     }
 
@@ -47,7 +47,7 @@ contract SPVMTest is Test, SPVM {
         address _owner,
         uint16 _supply,
         uint32 _nonce
-    ) internal returns (Transaction memory) {
+    ) internal view returns (Transaction memory) {
         bytes memory txParam = abi.encode(
             MintTransactionParams(_tokenTicker, _owner, _supply)
         );
@@ -60,7 +60,7 @@ contract SPVMTest is Test, SPVM {
         address _to,
         uint16 _amount,
         uint32 _nonce
-    ) internal returns (Transaction memory) {
+    ) internal view returns (Transaction memory) {
         bytes memory txParam = abi.encode(
             TransferTransactionParams(_tokenTicker, _to, _amount)
         );
@@ -111,6 +111,20 @@ contract SPVMTest is Test, SPVM {
         assertEq(getBalance("TST", address(this)), 100);
     }
 
+    function testFuzz_ExecuteRawMintTransaction(uint16 amount) external {
+        Transaction memory tx1 = createMintTransaction(
+            "TST",
+            address(this),
+            address(this),
+            amount,
+            0
+        );
+
+        // Execute the transaction
+        executeRawTransaction(encodeRawTransactionContents(tx1));
+        assertEq(getBalance("TST", address(this)), amount);
+    }
+
     function testExecuteRawTransferTransaction() external {
         Transaction memory tx1 = createMintTransaction(
             "TST",
@@ -156,6 +170,33 @@ contract SPVMTest is Test, SPVM {
         );
         executeRawTransaction(encodeRawTransactionContents(tx4));
         assertEq(getBalance("TST", address(this)), 50);
+    }
+
+    function testFuzz_ExecuteRawTransferTransaction(
+        uint16 mint_amount,
+        uint16 send_amount
+    ) external {
+        vm.assume(mint_amount >= send_amount);
+        Transaction memory tx1 = createMintTransaction(
+            "TST",
+            address(this),
+            address(this),
+            mint_amount,
+            0
+        );
+        executeRawTransaction(encodeRawTransactionContents(tx1));
+        assertEq(getBalance("TST", address(this)), mint_amount);
+
+        Transaction memory tx2 = createTransferTransaction(
+            "TST",
+            address(this),
+            address(1),
+            send_amount,
+            1
+        );
+        executeRawTransaction(encodeRawTransactionContents(tx2));
+        assertEq(getBalance("TST", address(this)), mint_amount - send_amount);
+        assertEq(getBalance("TST", address(1)), send_amount);
     }
 
     // check that function reverts when it should
