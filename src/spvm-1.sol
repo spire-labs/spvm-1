@@ -140,10 +140,7 @@ contract SPVM {
         } else {
             revert("Invalid transaction type");
         }
-        require(
-            nonces[txContent.from] == txContent.nonce,
-            "Invalid nonce"
-        );
+        require(nonces[txContent.from] == txContent.nonce, "Invalid nonce");
         return true;
     }
 
