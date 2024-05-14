@@ -243,4 +243,15 @@ contract SPVM {
 
         executeBlockTransactions(proposed_block.transactions);
     }
+
+    /////// Helper functions ///////
+
+    function getTransactionsInBlock(uint32 block_number)
+        public
+        view
+        returns (Transaction[] memory)
+    {
+        Block storage b = blocks[block_number];
+        return b.transactions;
+    }
 }

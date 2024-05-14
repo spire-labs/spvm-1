@@ -553,6 +553,60 @@ contract SPVMTest is Test, SPVM {
         assertEq(getBalance("TST", address(1)), 50);
     }
 
+    function testGetTransactionsInBlock() external {
+        Transaction memory Tx = createMintTransaction(
+            "TST",
+            signer,
+            signer,
+            100,
+            0
+        );
+
+        Transaction memory Tx2 = createMintTransaction(
+            "TST2",
+            signer,
+            signer,
+            200,
+            1
+        );
+
+        // transfer
+        Transaction memory Tx3 = createTransferTransaction(
+            "TST2",
+            signer,
+            address(1),
+            50,
+            2
+        );
+
+        Transaction[] memory txs = new Transaction[](3);
+        txs[0] = Tx;
+        txs[1] = Tx2;
+        txs[2] = Tx3;
+
+        bytes memory encoded_txs = abi.encode(txs);
+
+        bytes32 blockHash = keccak256(
+            abi.encodePacked(blocks[0].blockHash, encoded_txs)
+        );
+
+        Block memory b = Block({
+            blockNumber: 1,
+            parentHash: blocks[0].blockHash,
+            blockHash: blockHash,
+            transactions: txs,
+            proposer: signer,
+            proposer_signature: signHash(pk, blockHash)
+        });
+
+        this.proposeBlock(b);
+
+        assertEq(getTransactionsInBlock(1).length, 3);
+        assertEq(getTransactionsInBlock(1)[0].txContent.txType, 0);
+        assertEq(getTransactionsInBlock(1)[1].txContent.txType, 0);
+        assertEq(getTransactionsInBlock(1)[2].txContent.txType, 1);
+    }
+
 }
 
 // election contract implementation for testing
