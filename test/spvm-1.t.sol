@@ -437,7 +437,7 @@ contract SPVMTest is Test, SPVM {
             blockHash: blockHash2,
             transactions: txs2,
             proposer: signer,
-            proposer_signature: signHash(pk, blockHash)
+            proposer_signature: signHash(pk, blockHash2)
         });
 
         this.proposeBlock(b2);
