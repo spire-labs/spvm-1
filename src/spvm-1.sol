@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 import "openzeppelin-contracts/contracts/utils/cryptography/SignatureChecker.sol";
 
-import "./electionInterface.sol";
+import "poc-election-contract/ElectionInterface.sol";
 
 /// @title Spire PoC Virtual Machine - version 1 - interpreter
 /// @author mteam
