@@ -9,4 +9,4 @@
 	url = git@github.com:spire-labs/poc-election-contract.git
 [submodule "lib/poc-preconfirmations-slashing"]
 	path = lib/poc-preconfirmations-slashing
-	url = git@github.com:spire-labs/poc-preconfirmations-slashing.git
+	url = https://github.com/spire-labs/poc-preconfirmations-slashing
