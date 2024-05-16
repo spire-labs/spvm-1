@@ -7,3 +7,6 @@
 [submodule "lib/poc-election-contract"]
 	path = lib/poc-election-contract
 	url = git@github.com:spire-labs/poc-election-contract.git
+[submodule "lib/poc-preconfirmations-slashing"]
+	path = lib/poc-preconfirmations-slashing
+	url = git@github.com:spire-labs/poc-preconfirmations-slashing.git
