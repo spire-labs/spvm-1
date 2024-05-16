@@ -4,3 +4,5 @@ erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/
 forge-std/=lib/forge-std/src/
 openzeppelin-contracts/=lib/openzeppelin-contracts/
 poc-election-contract/=lib/poc-election-contract/src/
+poc-preconfirmations-slashing/=lib/poc-preconfirmations-slashing/src/
+spvm-1/=lib/poc-preconfirmations-slashing/lib/spvm-1/src/

@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import "openzeppelin-contracts/contracts/utils/cryptography/SignatureChecker.sol";
 
 import "poc-election-contract/ElectionInterface.sol";
+import "poc-preconfirmations-slashing/Slashing.sol";
 
 /// @title Spire PoC Virtual Machine - version 1 - interpreter
 /// @author mteam
@@ -17,6 +18,8 @@ contract SPVM {
     uint32 public blockNumber = 0;
 
     ElectionInterface public electionContract;
+
+    Slashing public slashingContract;
 
     struct TransactionContent {
         address from;
@@ -38,7 +41,7 @@ contract SPVM {
     }
 
     struct Block {
-        Transaction[] transactions;
+        SPVMTransaction[] transactions;
         bytes32 blockHash;
         bytes32 parentHash;
         uint32 blockNumber;
@@ -46,7 +49,7 @@ contract SPVM {
         bytes proposer_signature;
     }
 
-    struct Transaction {
+    struct SPVMTransaction {
         TransactionContent txContent;
         bytes32 transactionHash;
         bytes signature;
@@ -66,6 +69,14 @@ contract SPVM {
             "Election contract already set"
         );
         electionContract = _electionContract;
+    }
+
+    function setSlashingContract(Slashing _slashingContract) external {
+        require(
+            address(slashingContract) == address(0),
+            "Slashing contract already set"
+        );
+        slashingContract = _slashingContract;
     }
 
     // Function to set a balance in the nested map
@@ -172,7 +183,7 @@ contract SPVM {
             );
     }
 
-    function executeTx(Transaction memory transaction) internal {
+    function executeTx(SPVMTransaction memory transaction) internal {
         bytes32 txHash = keccak256(abi.encode(transaction.txContent));
         require(
             txHash == transaction.transactionHash,
@@ -189,7 +200,7 @@ contract SPVM {
         executeRawTransaction(abi.encode(transaction.txContent));
     }
 
-    function executeBlockTransactions(Transaction[] memory txs) internal {
+    function executeBlockTransactions(SPVMTransaction[] memory txs) internal {
         for (uint i = 0; i < txs.length; i++) {
             // note: reverting transactions revert the entire block
             executeTx(txs[i]);
@@ -210,7 +221,8 @@ contract SPVM {
         // check that proposer is winner of election if electionContract is set
         if (address(electionContract) != address(0)) {
             require(
-                proposed_block.proposer == electionContract.getWinner(blockNumber),
+                proposed_block.proposer ==
+                    electionContract.getWinner(blockNumber),
                 "proposer was not winner"
             );
         }
@@ -239,6 +251,27 @@ contract SPVM {
             "Invalid parent hash"
         );
 
+        // check that the proposed block includes all transactions from the previous validity conditions
+        if (address(slashingContract) != address(0)) {
+            Transaction[] memory validity_conditions = slashingContract
+                .getValidityConditions(blockNumber - 1);
+            uint txs_included = 0;
+            for (uint i = 0; i < validity_conditions.length; i++) {
+                for (uint j = 0; j < proposed_block.transactions.length; j++) {
+                    if (
+                        validity_conditions[i].tx_hash ==
+                        proposed_block.transactions[j].transactionHash
+                    ) {
+                        txs_included += 1;
+                    }
+                }
+            }
+            require(
+                txs_included == validity_conditions.length,
+                "Block does not satisfy validity conditions"
+            );
+        }
+
         blocks[blockNumber] = proposed_block;
 
         executeBlockTransactions(proposed_block.transactions);
@@ -246,11 +279,9 @@ contract SPVM {
 
     /////// Helper functions ///////
 
-    function getTransactionsInBlock(uint32 block_number)
-        public
-        view
-        returns (Transaction[] memory)
-    {
+    function getTransactionsInBlock(
+        uint32 block_number
+    ) public view returns (SPVMTransaction[] memory) {
         Block storage b = blocks[block_number];
         return b.transactions;
     }
