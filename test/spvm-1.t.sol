@@ -21,14 +21,14 @@ contract SPVMTest is Test, SPVM {
         uint8 _type,
         bytes memory _params,
         uint32 _nonce
-    ) internal view returns (Transaction memory) {
+    ) internal view returns (SPVMTransaction memory) {
         bytes memory rawTx = abi.encode(
             TransactionContent(_signer, _type, _params, _nonce)
         );
         bytes32 txHash = keccak256(rawTx);
         bytes memory signature = signHash(pk, txHash);
         return
-            Transaction(
+            SPVMTransaction(
                 TransactionContent(_signer, _type, _params, _nonce),
                 txHash,
                 signature
@@ -41,7 +41,7 @@ contract SPVMTest is Test, SPVM {
     }
 
     function encodeRawTransactionContents(
-        Transaction memory _tx
+        SPVMTransaction memory _tx
     ) internal pure returns (bytes memory) {
         return abi.encode(_tx.txContent);
     }
@@ -52,7 +52,7 @@ contract SPVMTest is Test, SPVM {
         address _owner,
         uint16 _supply,
         uint32 _nonce
-    ) internal view returns (Transaction memory) {
+    ) internal view returns (SPVMTransaction memory) {
         bytes memory txParam = abi.encode(
             MintTransactionParams(_tokenTicker, _owner, _supply)
         );
@@ -65,7 +65,7 @@ contract SPVMTest is Test, SPVM {
         address _to,
         uint16 _amount,
         uint32 _nonce
-    ) internal view returns (Transaction memory) {
+    ) internal view returns (SPVMTransaction memory) {
         bytes memory txParam = abi.encode(
             TransferTransactionParams(_tokenTicker, _to, _amount)
         );
@@ -88,7 +88,7 @@ contract SPVMTest is Test, SPVM {
     }
 
     function testExecuteRawMintTransaction() external {
-        Transaction memory tx1 = createMintTransaction(
+        SPVMTransaction memory tx1 = createMintTransaction(
             "TST",
             address(this),
             address(this),
@@ -101,7 +101,7 @@ contract SPVMTest is Test, SPVM {
         assertEq(getBalance("TST", address(this)), 100);
         assertEq(getBalance("TST", address(1)), 0);
 
-        Transaction memory tx2 = createMintTransaction(
+        SPVMTransaction memory tx2 = createMintTransaction(
             "TST2",
             address(this),
             address(1),
@@ -117,7 +117,7 @@ contract SPVMTest is Test, SPVM {
     }
 
     function testFuzz_ExecuteRawMintTransaction(uint16 amount) external {
-        Transaction memory tx1 = createMintTransaction(
+        SPVMTransaction memory tx1 = createMintTransaction(
             "TST",
             address(this),
             address(this),
@@ -131,7 +131,7 @@ contract SPVMTest is Test, SPVM {
     }
 
     function testExecuteRawTransferTransaction() external {
-        Transaction memory tx1 = createMintTransaction(
+        SPVMTransaction memory tx1 = createMintTransaction(
             "TST",
             address(this),
             address(this),
@@ -142,7 +142,7 @@ contract SPVMTest is Test, SPVM {
         assertEq(getBalance("TST", address(this)), 100);
         assertEq(getBalance("TST", address(1)), 0);
 
-        Transaction memory tx2 = createMintTransaction(
+        SPVMTransaction memory tx2 = createMintTransaction(
             "TST2",
             address(1),
             address(1),
@@ -154,7 +154,7 @@ contract SPVMTest is Test, SPVM {
         assertEq(getBalance("TST2", address(this)), 0);
         assertEq(getBalance("TST", address(this)), 100);
 
-        Transaction memory tx3 = createTransferTransaction(
+        SPVMTransaction memory tx3 = createTransferTransaction(
             "TST",
             address(this),
             address(1),
@@ -166,7 +166,7 @@ contract SPVMTest is Test, SPVM {
         assertEq(getBalance("TST", address(1)), 50);
 
         // self transfer
-        Transaction memory tx4 = createTransferTransaction(
+        SPVMTransaction memory tx4 = createTransferTransaction(
             "TST",
             address(this),
             address(this),
@@ -182,7 +182,7 @@ contract SPVMTest is Test, SPVM {
         uint16 send_amount
     ) external {
         vm.assume(mint_amount >= send_amount);
-        Transaction memory tx1 = createMintTransaction(
+        SPVMTransaction memory tx1 = createMintTransaction(
             "TST",
             address(this),
             address(this),
@@ -192,7 +192,7 @@ contract SPVMTest is Test, SPVM {
         executeRawTransaction(encodeRawTransactionContents(tx1));
         assertEq(getBalance("TST", address(this)), mint_amount);
 
-        Transaction memory tx2 = createTransferTransaction(
+        SPVMTransaction memory tx2 = createTransferTransaction(
             "TST",
             address(this),
             address(1),
@@ -207,7 +207,7 @@ contract SPVMTest is Test, SPVM {
     // check that function reverts when it should
     function testValidityChecking() external {
         // token already initialized
-        Transaction memory tx1 = createMintTransaction(
+        SPVMTransaction memory tx1 = createMintTransaction(
             "TST",
             address(this),
             address(this),
@@ -215,7 +215,7 @@ contract SPVMTest is Test, SPVM {
             0
         );
         executeRawTransaction(encodeRawTransactionContents(tx1));
-        Transaction memory tx2 = createMintTransaction(
+        SPVMTransaction memory tx2 = createMintTransaction(
             "TST",
             address(this),
             address(this),
@@ -226,7 +226,7 @@ contract SPVMTest is Test, SPVM {
         executeRawTransaction(encodeRawTransactionContents(tx2));
 
         // token not initialized
-        Transaction memory tx3 = createTransferTransaction(
+        SPVMTransaction memory tx3 = createTransferTransaction(
             "NOTTST",
             address(this),
             address(1),
@@ -237,7 +237,7 @@ contract SPVMTest is Test, SPVM {
         executeRawTransaction(encodeRawTransactionContents(tx3));
 
         // Insufficient balance
-        Transaction memory tx4 = createTransferTransaction(
+        SPVMTransaction memory tx4 = createTransferTransaction(
             "TST",
             address(this),
             address(1),
@@ -247,7 +247,7 @@ contract SPVMTest is Test, SPVM {
         vm.expectRevert(bytes("Insufficient balance"));
         executeRawTransaction(encodeRawTransactionContents(tx4));
 
-        Transaction memory tx5 = createTransferTransaction(
+        SPVMTransaction memory tx5 = createTransferTransaction(
             "TST",
             address(1),
             address(this),
@@ -268,7 +268,7 @@ contract SPVMTest is Test, SPVM {
         executeRawTransaction(rawTx6);
 
         // invalid nonce
-        Transaction memory tx7 = createMintTransaction(
+        SPVMTransaction memory tx7 = createMintTransaction(
             "TST2",
             address(this),
             address(this),
@@ -297,7 +297,7 @@ contract SPVMTest is Test, SPVM {
 
     // test executeTx
     function testExecuteTx() external {
-        Transaction memory Tx = createMintTransaction(
+        SPVMTransaction memory Tx = createMintTransaction(
             "TST",
             signer,
             signer,
@@ -317,7 +317,7 @@ contract SPVMTest is Test, SPVM {
     }
 
     function testExecuteBlockTransactions() external {
-        Transaction memory Tx = createMintTransaction(
+        SPVMTransaction memory Tx = createMintTransaction(
             "TST",
             signer,
             signer,
@@ -325,7 +325,7 @@ contract SPVMTest is Test, SPVM {
             0
         );
 
-        Transaction memory Tx2 = createMintTransaction(
+        SPVMTransaction memory Tx2 = createMintTransaction(
             "TST2",
             signer,
             signer,
@@ -334,7 +334,7 @@ contract SPVMTest is Test, SPVM {
         );
 
         // transfer
-        Transaction memory Tx3 = createTransferTransaction(
+        SPVMTransaction memory Tx3 = createTransferTransaction(
             "TST2",
             signer,
             address(1),
@@ -342,7 +342,7 @@ contract SPVMTest is Test, SPVM {
             2
         );
 
-        Transaction[] memory txs = new Transaction[](3);
+        SPVMTransaction[] memory txs = new SPVMTransaction[](3);
         txs[0] = Tx;
         txs[1] = Tx2;
         txs[2] = Tx3;
@@ -354,7 +354,7 @@ contract SPVMTest is Test, SPVM {
     }
 
     function testProposeEmptyBlock() external {
-        bytes memory txs = abi.encode(new Transaction[](0));
+        bytes memory txs = abi.encode(new SPVMTransaction[](0));
 
         bytes32 blockHash = keccak256(
             abi.encodePacked(blocks[0].blockHash, txs)
@@ -364,7 +364,7 @@ contract SPVMTest is Test, SPVM {
             blockNumber: 1,
             parentHash: blocks[0].blockHash,
             blockHash: blockHash,
-            transactions: new Transaction[](0),
+            transactions: new SPVMTransaction[](0),
             proposer: signer,
             proposer_signature: signHash(pk, blockHash)
         });
@@ -379,7 +379,7 @@ contract SPVMTest is Test, SPVM {
 
     function testProposeBlock() external {
         // propose a block with one transaction
-        Transaction memory Tx = createMintTransaction(
+        SPVMTransaction memory Tx = createMintTransaction(
             "TST",
             signer,
             signer,
@@ -387,7 +387,7 @@ contract SPVMTest is Test, SPVM {
             0
         );
 
-        Transaction[] memory txs = new Transaction[](1);
+        SPVMTransaction[] memory txs = new SPVMTransaction[](1);
         txs[0] = Tx;
 
         bytes memory encoded_txs = abi.encode(txs);
@@ -414,7 +414,7 @@ contract SPVMTest is Test, SPVM {
         assertEq(getBalance("TST", signer), 100);
 
         // second block
-        Transaction memory Tx2 = createTransferTransaction(
+        SPVMTransaction memory Tx2 = createTransferTransaction(
             "TST",
             signer,
             address(1),
@@ -422,7 +422,7 @@ contract SPVMTest is Test, SPVM {
             1
         );
 
-        Transaction[] memory txs2 = new Transaction[](1);
+        SPVMTransaction[] memory txs2 = new SPVMTransaction[](1);
         txs2[0] = Tx2;
 
         bytes memory encoded_txs2 = abi.encode(txs2);
@@ -452,7 +452,7 @@ contract SPVMTest is Test, SPVM {
 
     function testProposeBlockWithMultipleTxs() external {
         // mint
-        Transaction memory Tx = createMintTransaction(
+        SPVMTransaction memory Tx = createMintTransaction(
             "TST",
             signer,
             signer,
@@ -461,7 +461,7 @@ contract SPVMTest is Test, SPVM {
         );
 
         // transfer
-        Transaction memory Tx2 = createTransferTransaction(
+        SPVMTransaction memory Tx2 = createTransferTransaction(
             "TST",
             signer,
             address(1),
@@ -469,7 +469,7 @@ contract SPVMTest is Test, SPVM {
             1
         );
 
-        Transaction[] memory txs = new Transaction[](2);
+        SPVMTransaction[] memory txs = new SPVMTransaction[](2);
         txs[0] = Tx;
         txs[1] = Tx2;
 
@@ -500,11 +500,11 @@ contract SPVMTest is Test, SPVM {
 
     // test block proposal permissioning
     function testProposeBlockWithElectionContract() external {
-        ElectionContract electionContract = new ElectionContract();
+        TestElectionContract electionContract = new TestElectionContract();
         this.setElectionContract(electionContract);
 
         // mint
-        Transaction memory Tx = createMintTransaction(
+        SPVMTransaction memory Tx = createMintTransaction(
             "TST",
             signer,
             signer,
@@ -513,7 +513,7 @@ contract SPVMTest is Test, SPVM {
         );
 
         // transfer
-        Transaction memory Tx2 = createTransferTransaction(
+        SPVMTransaction memory Tx2 = createTransferTransaction(
             "TST",
             signer,
             address(1),
@@ -521,7 +521,7 @@ contract SPVMTest is Test, SPVM {
             1
         );
 
-        Transaction[] memory txs = new Transaction[](2);
+        SPVMTransaction[] memory txs = new SPVMTransaction[](2);
         txs[0] = Tx;
         txs[1] = Tx2;
 
@@ -554,7 +554,7 @@ contract SPVMTest is Test, SPVM {
     }
 
     function testGetTransactionsInBlock() external {
-        Transaction memory Tx = createMintTransaction(
+        SPVMTransaction memory Tx = createMintTransaction(
             "TST",
             signer,
             signer,
@@ -562,7 +562,7 @@ contract SPVMTest is Test, SPVM {
             0
         );
 
-        Transaction memory Tx2 = createMintTransaction(
+        SPVMTransaction memory Tx2 = createMintTransaction(
             "TST2",
             signer,
             signer,
@@ -571,7 +571,7 @@ contract SPVMTest is Test, SPVM {
         );
 
         // transfer
-        Transaction memory Tx3 = createTransferTransaction(
+        SPVMTransaction memory Tx3 = createTransferTransaction(
             "TST2",
             signer,
             address(1),
@@ -579,7 +579,7 @@ contract SPVMTest is Test, SPVM {
             2
         );
 
-        Transaction[] memory txs = new Transaction[](3);
+        SPVMTransaction[] memory txs = new SPVMTransaction[](3);
         txs[0] = Tx;
         txs[1] = Tx2;
         txs[2] = Tx3;
@@ -610,7 +610,7 @@ contract SPVMTest is Test, SPVM {
 }
 
 // election contract implementation for testing
-contract ElectionContract is ElectionInterface {
+contract TestElectionContract is ElectionInterface {
     address public winner;
 
     function setWinner(address _winner) public {
