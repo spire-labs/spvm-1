@@ -208,6 +208,7 @@ contract SPVM {
     }
 
     function proposeBlock(Block calldata proposed_block) external {
+        require(block.number % 2 == 0, "Too early to propose");
         // validate proposer signature
         require(
             validateSignature(

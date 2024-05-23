@@ -367,7 +367,9 @@ contract SPVMTest is Test, SPVM {
             proposer: signer,
             proposer_signature: signHash(pk, blockHash)
         });
-
+        vm.expectRevert(bytes("Too early to propose"));
+        this.proposeBlock(b);
+        vm.roll(block.number + 1);
         this.proposeBlock(b);
 
         assertEq(blocks[1].blockNumber, 1);
@@ -403,9 +405,11 @@ contract SPVMTest is Test, SPVM {
             proposer: signer,
             proposer_signature: signHash(pk, blockHash)
         });
-
+        vm.expectRevert(bytes("Too early to propose"));
         this.proposeBlock(b);
-
+        vm.roll(block.number + 1);
+        this.proposeBlock(b);
+        
         assertEq(blocks[1].blockNumber, 1);
         assertEq(blocks[1].parentHash, blocks[0].blockHash);
         assertEq(blocks[1].blockHash, blockHash);
@@ -420,7 +424,7 @@ contract SPVMTest is Test, SPVM {
             50,
             1
         );
-
+        
         SPVMTransaction[] memory txs2 = new SPVMTransaction[](1);
         txs2[0] = Tx2;
 
@@ -438,7 +442,6 @@ contract SPVMTest is Test, SPVM {
             proposer: signer,
             proposer_signature: signHash(pk, blockHash2)
         });
-
         this.proposeBlock(b2);
 
         assertEq(blocks[2].blockNumber, 2);
@@ -486,7 +489,9 @@ contract SPVMTest is Test, SPVM {
             proposer: signer,
             proposer_signature: signHash(pk, blockHash)
         });
-
+        vm.expectRevert(bytes("Too early to propose"));
+        this.proposeBlock(b);
+        vm.roll(block.number + 1);
         this.proposeBlock(b);
 
         assertEq(blocks[1].blockNumber, 1);
@@ -541,7 +546,9 @@ contract SPVMTest is Test, SPVM {
 
         // set winner
         electionContract.setWinner(signer);
-
+        vm.expectRevert(bytes("Too early to propose"));
+        this.proposeBlock(b);
+        vm.roll(block.number + 1);
         this.proposeBlock(b);
 
         assertEq(blocks[1].blockNumber, 1);
@@ -597,7 +604,9 @@ contract SPVMTest is Test, SPVM {
             proposer: signer,
             proposer_signature: signHash(pk, blockHash)
         });
-
+        vm.expectRevert(bytes("Too early to propose"));
+        this.proposeBlock(b);
+        vm.roll(block.number + 1);
         this.proposeBlock(b);
 
         assertEq(getTransactionsInBlock(1).length, 3);
