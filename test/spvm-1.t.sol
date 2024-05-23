@@ -287,12 +287,11 @@ contract SPVMTest is Test, SPVM {
         assert(validateSignature(tx_hash, signature, signer));
     }
 
-    function testInvalidSignature() external {
+    function testInvalidSignature() view external {
         bytes32 tx_hash = keccak256(abi.encodePacked("test"));
 
         bytes memory signature = bytes("test");
-        vm.expectRevert("Invalid signature");
-        validateSignature(tx_hash, signature, signer);
+        assert(!validateSignature(tx_hash, signature, signer));
     }
 
     // test executeTx
